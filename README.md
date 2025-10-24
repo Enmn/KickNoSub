@@ -18,7 +18,7 @@
   <h3 align="center">KickNoSub</h3>
 
   <p align="center">
-    Extract direct stream URLs from Kick VODs easily with Python CLI.
+    Extract direct stream URLs from Kick VODs easily with Python.
     <br />
     <a href="https://github.com/Enmn/KickNoSub"><strong>Explore the repository »</strong></a>
     <br />
