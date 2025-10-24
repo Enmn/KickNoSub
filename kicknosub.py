@@ -14,12 +14,18 @@ class KickNoSub:
         self.console = Console()
         self.api = KickAPI()
         self.os_name = platform.system()
-        self.ffmpeg_local_path = os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe" if self.os_name=="Windows" else "ffmpeg")
+        self.ffmpeg_local_path = os.path.join(
+            os.path.dirname(__file__), 
+            "ffmpeg", 
+            "ffmpeg.exe" if self.os_name == "Windows" else "ffmpeg"
+        )
 
     def ffmpeg_exists(self):
+        """Check if FFmpeg exists in PATH or local project folder."""
         return shutil.which("ffmpeg") is not None or os.path.exists(self.ffmpeg_local_path)
 
     def install_ffmpeg(self):
+        """Install FFmpeg depending on the operating system."""
         if self.os_name == "Linux":
             self.console.print("[yellow]Attempting to install FFmpeg using apt...[/yellow]")
             try:
@@ -28,6 +34,7 @@ class KickNoSub:
                 self.console.print("[green]FFmpeg installed successfully![/green]")
             except Exception as e:
                 self.console.print(f"[red]Failed to install FFmpeg:[/red] {e}")
+
         elif self.os_name == "Darwin":
             self.console.print("[yellow]Attempting to install FFmpeg using Homebrew...[/yellow]")
             try:
@@ -35,11 +42,23 @@ class KickNoSub:
                 self.console.print("[green]FFmpeg installed successfully![/green]")
             except Exception as e:
                 self.console.print(f"[red]Failed to install FFmpeg:[/red] {e}")
+
         elif self.os_name == "Windows":
-            self.console.print("[red]Automatic installation is not supported on Windows.[/red]")
-            self.console.print("[yellow]Please download ffmpeg.exe and place it in the project folder.[/yellow]")
+            self.console.print("[yellow]Checking if winget is available...[/yellow]")
+            if shutil.which("winget"):
+                try:
+                    self.console.print("[yellow]Installing FFmpeg using winget...[/yellow]")
+                    subprocess.run(["winget", "install", "ffmpeg"], check=True)
+                    self.console.print("[green]FFmpeg installed successfully![/green]")
+                    self.console.print("[yellow]Please restart CMD or PowerShell to use FFmpeg.[/yellow]")
+                except Exception as e:
+                    self.console.print(f"[red]Failed to install FFmpeg via winget:[/red] {e}")
+            else:
+                self.console.print("[red]winget not found![/red]")
+                self.console.print("[yellow]Please install winget or download ffmpeg.exe manually from https://www.gyan.dev/ffmpeg/builds/[/yellow]")
 
     def get_video_stream_url(self, video_url: str, quality: str) -> str | None:
+        """Generate the HLS stream URL from the Kick video URL."""
         try:
             parts = video_url.split("/")
             if len(parts) < 6:
@@ -68,6 +87,7 @@ class KickNoSub:
             return None
 
     def download_video(self, stream_url: str, filename: str):
+        """Download the video using FFmpeg."""
         ffmpeg_path = shutil.which("ffmpeg") or self.ffmpeg_local_path
         if not os.path.exists(ffmpeg_path):
             self.console.print("[red]FFmpeg executable not found![/red]")
@@ -79,8 +99,8 @@ class KickNoSub:
             self.console.print(f"[red]Download failed:[/red] {e}")
 
     def run(self):
+        """Main program loop."""
         video_url = questionary.text("Enter the Kick video URL:").ask()
-
         quality = questionary.select(
             "Choose video quality:",
             choices=["1080p60", "720p60", "480p30", "360p30", "160p30"]
