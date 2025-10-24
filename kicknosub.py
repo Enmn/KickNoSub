@@ -1,57 +1,120 @@
+import os
+import sys
+import platform
+import shutil
+import subprocess
 from datetime import datetime
 from kickapi import KickAPI
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
 import questionary
 
-console = Console()
+class KickNoSub:
+    def __init__(self):
+        self.console = Console()
+        self.api = KickAPI()
+        self.os_name = platform.system()
+        self.ffmpeg_local_path = os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe" if self.os_name=="Windows" else "ffmpeg")
 
-def get_video_stream_url(video_url: str, quality: str) -> str | None:
-    try:
-        parts = video_url.split("/")
-        channel_name = parts[3]
-        video_slug = parts[5]
+    def ffmpeg_exists(self):
+        return shutil.which("ffmpeg") is not None or os.path.exists(self.ffmpeg_local_path)
 
-        kick_api = KickAPI()
-        channel = kick_api.channel(channel_name)
+    def install_ffmpeg(self):
+        if self.os_name == "Linux":
+            self.console.print("[yellow]Attempting to install FFmpeg using apt...[/yellow]")
+            try:
+                subprocess.run(["sudo", "apt", "update"], check=True)
+                subprocess.run(["sudo", "apt", "install", "-y", "ffmpeg"], check=True)
+                self.console.print("[green]FFmpeg installed successfully![/green]")
+            except Exception as e:
+                self.console.print(f"[red]Failed to install FFmpeg:[/red] {e}")
+        elif self.os_name == "Darwin":
+            self.console.print("[yellow]Attempting to install FFmpeg using Homebrew...[/yellow]")
+            try:
+                subprocess.run(["brew", "install", "ffmpeg"], check=True)
+                self.console.print("[green]FFmpeg installed successfully![/green]")
+            except Exception as e:
+                self.console.print(f"[red]Failed to install FFmpeg:[/red] {e}")
+        elif self.os_name == "Windows":
+            self.console.print("[red]Automatic installation is not supported on Windows.[/red]")
+            self.console.print("[yellow]Please download ffmpeg.exe and place it in the project folder.[/yellow]")
 
-        for video in channel.videos:
-            if video.uuid == video_slug:
-                thumbnail_url = video.thumbnail["src"]
-                start_time = datetime.strptime(video.start_time, "%Y-%m-%d %H:%M:%S")
-                path_parts = thumbnail_url.split("/")
-                channel_id, video_id = path_parts[4], path_parts[5]
+    def get_video_stream_url(self, video_url: str, quality: str) -> str | None:
+        try:
+            parts = video_url.split("/")
+            if len(parts) < 6:
+                return None
+            channel_name = parts[3]
+            video_slug = parts[5]
 
-                stream_url = (
-                    f"https://stream.kick.com/ivs/v1/196233775518/"
-                    f"{channel_id}/{start_time.year}/{start_time.month}/"
-                    f"{start_time.day}/{start_time.hour}/{start_time.minute}/"
-                    f"{video_id}/media/hls/{quality}/playlist.m3u8"
-                )
-                return stream_url
-        return None
-    except Exception as e:
-        return None
+            channel = self.api.channel(channel_name)
+            for video in channel.videos:
+                if video.uuid == video_slug:
+                    thumbnail_url = video.thumbnail["src"]
+                    start_time = datetime.strptime(video.start_time, "%Y-%m-%d %H:%M:%S")
+                    path_parts = thumbnail_url.split("/")
+                    channel_id, video_id = path_parts[4], path_parts[5]
 
-def main():
-    # Ask for video URL
-    video_url = Prompt.ask("[yellow]Enter the Kick video URL[/yellow]")
+                    stream_url = (
+                        f"https://stream.kick.com/ivs/v1/196233775518/"
+                        f"{channel_id}/{start_time.year}/{start_time.month}/"
+                        f"{start_time.day}/{start_time.hour}/{start_time.minute}/"
+                        f"{video_id}/media/hls/{quality}/playlist.m3u8"
+                    )
+                    return stream_url
+            return None
+        except Exception as e:
+            self.console.print(f"[red]Error:[/red] {e}")
+            return None
 
-    # Ask for quality
-    quality = questionary.select(
-        "Choose video quality:",
-        choices=["1080p60", "720p60", "480p30", "360p30", "160p30"]
-    ).ask()
+    def download_video(self, stream_url: str, filename: str):
+        ffmpeg_path = shutil.which("ffmpeg") or self.ffmpeg_local_path
+        if not os.path.exists(ffmpeg_path):
+            self.console.print("[red]FFmpeg executable not found![/red]")
+            return
+        try:
+            subprocess.run([ffmpeg_path, "-i", stream_url, "-c", "copy", filename], check=True)
+            self.console.print(f"[green]✅ Download completed: {filename}[/green]")
+        except Exception as e:
+            self.console.print(f"[red]Download failed:[/red] {e}")
 
-    # Get stream URL
-    stream_url = get_video_stream_url(video_url, quality)
+    def run(self):
+        video_url = questionary.text("Enter the Kick video URL:").ask()
 
-    if stream_url:
-        console.print("\n[bold green]✅ Stream URL found![/bold green]\n")
-        console.print(Panel(stream_url, style="bright_blue"))
-    else:
-        console.print("[bold red]❌ Video not found or stream URL could not be retrieved.[/bold red]")
+        quality = questionary.select(
+            "Choose video quality:",
+            choices=["1080p60", "720p60", "480p30", "360p30", "160p30"]
+        ).ask()
+
+        stream_url = self.get_video_stream_url(video_url, quality)
+
+        if not stream_url:
+            self.console.print("[red]❌ Video not found or stream URL could not be retrieved.[/red]")
+            sys.exit()
+
+        download = questionary.confirm("Do you want to download it as MP4?").ask()
+
+        if download:
+            if self.ffmpeg_exists():
+                filename = questionary.text("Enter output filename (with .mp4):").ask()
+                self.download_video(stream_url, filename)
+            else:
+                install = questionary.confirm("FFmpeg not found. Do you want to install it now?").ask()
+                if install:
+                    self.install_ffmpeg()
+                    if self.ffmpeg_exists():
+                        filename = questionary.text("Enter output filename (with .mp4):").ask()
+                        self.download_video(stream_url, filename)
+                    else:
+                        self.console.print("[yellow]FFmpeg still not available. Showing stream URL instead.[/yellow]")
+                        self.console.print(Panel(stream_url, style="bright_blue"))
+                else:
+                    self.console.print("[yellow]FFmpeg not installed. Showing stream URL instead.[/yellow]")
+                    self.console.print(Panel(stream_url, style="bright_blue"))
+        else:
+            self.console.print("\n[bold green]✅ Stream URL:[/bold green]")
+            self.console.print(Panel(stream_url, style="bright_blue"))
 
 if __name__ == "__main__":
-    main()
+    app = KickNoSub()
+    app.run()
