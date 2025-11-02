@@ -8,10 +8,13 @@ from kickapi import KickAPI
 from rich.console import Console
 from rich.panel import Panel
 import questionary
+import cloudscraper
+from datetime import timedelta
 
 class KickNoSub:
     def __init__(self):
         self.console = Console()
+        self.session = cloudscraper.CloudScraper()
         self.api = KickAPI()
         self.os_name = platform.system()
         self.ffmpeg_local_path = os.path.join(
@@ -58,7 +61,7 @@ class KickNoSub:
                 self.console.print("[yellow]Please install winget or download ffmpeg.exe manually from https://www.gyan.dev/ffmpeg/builds/[/yellow]")
 
     def get_video_stream_url(self, video_url: str, quality: str) -> str | None:
-        """Generate the HLS stream URL from the Kick video URL."""
+        """Generate the correct HLS stream URL by checking minutes ±5."""
         try:
             parts = video_url.split("/")
             if len(parts) < 6:
@@ -74,13 +77,24 @@ class KickNoSub:
                     path_parts = thumbnail_url.split("/")
                     channel_id, video_id = path_parts[4], path_parts[5]
 
-                    stream_url = (
-                        f"https://stream.kick.com/ivs/v1/196233775518/"
-                        f"{channel_id}/{start_time.year}/{start_time.month}/"
-                        f"{start_time.day}/{start_time.hour}/{start_time.minute}/"
-                        f"{video_id}/media/hls/{quality}/playlist.m3u8"
-                    )
-                    return stream_url
+                    # نحاول تعديل الدقائق ±5
+                    for offset in range(-5, 6):
+                        adjusted_time = start_time + timedelta(minutes=offset)
+                        stream_url = (
+                            f"https://stream.kick.com/ivs/v1/196233775518/"
+                            f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
+                            f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
+                            f"{video_id}/media/hls/{quality}/playlist.m3u8"
+                        )
+                        res = self.session.head(stream_url)
+                        if res.status_code == 200:
+                            self.console.print(
+                                f"[green]✅ Found valid stream at offset {offset} minute(s)[/green]"
+                            )
+                            return stream_url
+
+                    self.console.print("[red]❌ Could not find a valid stream within ±5 minutes.[/red]")
+                    return None
             return None
         except Exception as e:
             self.console.print(f"[red]Error:[/red] {e}")
