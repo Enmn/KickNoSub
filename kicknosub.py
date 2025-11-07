@@ -68,7 +68,7 @@ class KickNoSub:
                 return None
             channel_name = parts[3]
             video_slug = parts[5]
-
+    
             channel = self.api.channel(channel_name)
             for video in channel.videos:
                 if video.uuid == video_slug:
@@ -76,29 +76,46 @@ class KickNoSub:
                     start_time = datetime.strptime(video.start_time, "%Y-%m-%d %H:%M:%S")
                     path_parts = thumbnail_url.split("/")
                     channel_id, video_id = path_parts[4], path_parts[5]
-
+    
                     # نحاول تعديل الدقائق ±5
                     for offset in range(-5, 6):
                         adjusted_time = start_time + timedelta(minutes=offset)
-                        stream_url = (
-                            f"https://stream.kick.com/ivs/v1/196233775518/"
-                            f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
-                            f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
-                            f"{video_id}/media/hls/{quality}/playlist.m3u8"
-                        )
-                        res = self.session.head(stream_url)
+    
+                        # ✅ Auto quality uses master.m3u8
+                        if quality == "Auto":
+                            stream_url = (
+                                f"https://stream.kick.com/ivs/v1/196233775518/"
+                                f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
+                                f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
+                                f"{video_id}/media/hls/master.m3u8"
+                            )
+                        else:
+                            stream_url = (
+                                f"https://stream.kick.com/ivs/v1/196233775518/"
+                                f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
+                                f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
+                                f"{video_id}/media/hls/{quality}/playlist.m3u8"
+                            )
+    
+                        # ✅ تجربة الرابط
+                        try:
+                            res = self.session.head(stream_url)
+                        except Exception:
+                            continue
+    
                         if res.status_code == 200:
                             self.console.print(
                                 f"[green]✅ Found valid stream at offset {offset} minute(s)[/green]"
                             )
                             return stream_url
-
+    
                     self.console.print("[red]❌ Could not find a valid stream within ±5 minutes.[/red]")
                     return None
             return None
         except Exception as e:
             self.console.print(f"[red]Error:[/red] {e}")
             return None
+
 
     def download_video(self, stream_url: str, filename: str):
         """Download the video using FFmpeg."""
@@ -117,7 +134,7 @@ class KickNoSub:
         video_url = questionary.text("Enter the Kick video URL:").ask()
         quality = questionary.select(
             "Choose video quality:",
-            choices=["1080p60", "720p60", "480p30", "360p30", "160p30"]
+            choices=["Auto", "1080p60", "720p60", "480p30", "360p30", "160p30"]
         ).ask()
 
         stream_url = self.get_video_stream_url(video_url, quality)
