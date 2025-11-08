@@ -60,6 +60,7 @@ KickNoSub is a Python command-line tool that extracts direct stream URLs from Ki
 ### Built With
 * [Python](https://www.python.org/)
 * [KickApi](https://github.com/Enmn/KickApi)
+* [CloudScraper](https://github.com/venomous/cloudscraper)
 * [Rich](https://github.com/Textualize/rich)
 * [Questionary](https://github.com/tmbo/questionary)
 
@@ -183,6 +184,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 * [Rich Python Library](https://github.com/Textualize/rich)
 * [Questionary](https://github.com/tmbo/questionary)
 * [KickApi](https://github.com/Enmn/KickApi)
+* [Cloud Scraper](https://github.com/venomous/cloudscraper)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

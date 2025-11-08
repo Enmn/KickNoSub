@@ -1,3 +1,4 @@
 kickapi
 rich
 questionary
+cloudscraper

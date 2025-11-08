@@ -77,11 +77,9 @@ class KickNoSub:
                     path_parts = thumbnail_url.split("/")
                     channel_id, video_id = path_parts[4], path_parts[5]
     
-                    # نحاول تعديل الدقائق ±5
                     for offset in range(-5, 6):
                         adjusted_time = start_time + timedelta(minutes=offset)
     
-                        # ✅ Auto quality uses master.m3u8
                         if quality == "Auto":
                             stream_url = (
                                 f"https://stream.kick.com/ivs/v1/196233775518/"
@@ -97,7 +95,6 @@ class KickNoSub:
                                 f"{video_id}/media/hls/{quality}/playlist.m3u8"
                             )
     
-                        # ✅ تجربة الرابط
                         try:
                             res = self.session.head(stream_url)
                         except Exception:
@@ -115,7 +112,6 @@ class KickNoSub:
         except Exception as e:
             self.console.print(f"[red]Error:[/red] {e}")
             return None
-
 
     def download_video(self, stream_url: str, filename: str):
         """Download the video using FFmpeg."""
