@@ -61,7 +61,8 @@ class KickNoSub:
                 self.console.print("[yellow]Please install winget or download ffmpeg.exe manually from https://www.gyan.dev/ffmpeg/builds/[/yellow]")
 
     def get_video_stream_url(self, video_url: str, quality: str) -> str | None:
-        """Generate the correct HLS stream URL by checking minutes ±5."""
+        """Generate the correct HLS stream URL by checking minutes ±5 and auto-quality."""
+        tried_urls = []  # Store all attempted URLs
         try:
             parts = video_url.split("/")
             if len(parts) < 6:
@@ -77,35 +78,39 @@ class KickNoSub:
                     path_parts = thumbnail_url.split("/")
                     channel_id, video_id = path_parts[4], path_parts[5]
     
+                    base_urls = [
+                        "https://stream.kick.com/ivs/v1/196233775518",
+                        "https://stream.kick.com/3c81249a5ce0/ivs/v1/196233775518",
+                        "https://stream.kick.com/0f3cb0ebce7/ivs/v1/196233775518"
+                    ]
+    
                     for offset in range(-5, 6):
                         adjusted_time = start_time + timedelta(minutes=offset)
     
-                        if quality == "Auto":
-                            stream_url = (
-                                f"https://stream.kick.com/ivs/v1/196233775518/"
-                                f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
-                                f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
-                                f"{video_id}/media/hls/master.m3u8"
-                            )
-                        else:
-                            stream_url = (
-                                f"https://stream.kick.com/ivs/v1/196233775518/"
-                                f"{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
-                                f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
-                                f"{video_id}/media/hls/{quality}/playlist.m3u8"
-                            )
+                        for base in base_urls:
+                            if quality.lower() == "auto":
+                                url = (
+                                    f"{base}/{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
+                                    f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
+                                    f"{video_id}/media/hls/master.m3u8"
+                                )
+                            else:
+                                url = (
+                                    f"{base}/{channel_id}/{adjusted_time.year}/{adjusted_time.month}/"
+                                    f"{adjusted_time.day}/{adjusted_time.hour}/{adjusted_time.minute}/"
+                                    f"{video_id}/media/hls/{quality}/playlist.m3u8"
+                                )
+                            
+                            tried_urls.append(url)  # Save URL
+                            try:
+                                res = self.session.head(url, timeout=5)
+                            except Exception:
+                                continue
     
-                        try:
-                            res = self.session.head(stream_url)
-                        except Exception:
-                            continue
-    
-                        if res.status_code == 200:
-                            self.console.print(
-                                f"[green]✅ Found valid stream at offset {offset} minute(s)[/green]"
-                            )
-                            return stream_url
-    
+                            if res.status_code == 200:
+                                self.console.print(f"[green]✅ Found valid stream at offset {offset} minute(s)[/green]")
+                                return url
+
                     self.console.print("[red]❌ Could not find a valid stream within ±5 minutes.[/red]")
                     return None
             return None
