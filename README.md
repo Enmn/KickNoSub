@@ -34,6 +34,11 @@ This project is intended **for educational, research, and learning purposes only
 - **Chrome Extension**  
   → See: [`/extension/README.md`](extension/)
 
+## Support the Project
+If you find **KickNoSub** useful, please consider giving it a **star ⭐** on GitHub!  
+
+Your support helps improve the project, encourages contributors, and makes it easier for others to discover it.
+
 ## Legal Disclaimer
 This project is provided strictly for **educational and research purposes**.
 
