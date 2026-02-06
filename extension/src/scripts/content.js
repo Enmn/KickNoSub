@@ -302,6 +302,17 @@ async function unlockVideo(triggerElement) {
         const qualSel = videoParent.querySelector('#k-quality');
 
         const volumeSlider = videoParent.querySelector('#k-volume');
+
+        document.addEventListener('keydown', (e) => {
+            if (!vid || !isFinite(vid.duration)) return;
+
+            if (e.key === "ArrowRight") {
+                vid.currentTime = Math.min(vid.currentTime + 5, vid.duration);
+            }
+            else if (e.key === "ArrowLeft") {
+                vid.currentTime = Math.max(vid.currentTime - 5, 0);
+            }
+        });
         
         volumeSlider.addEventListener('input', () => {
             vid.volume = volumeSlider.value;

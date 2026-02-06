@@ -17,7 +17,7 @@
         "*://*.kick.com/*"
     ],
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "src/scripts/background.js"
     },
     "content_scripts": [
         {
@@ -26,11 +26,11 @@
                 "*://www.kick.com/*"
             ],
             "js": [
-                "hls.min.js",
-                "content.js"
+                "src/resources/hls.min.js",
+                "src/scripts/content.js"
             ],
             "css": [
-                "styles.css"
+                "src/styles/styles.css"
             ],
             "run_at": "document_idle"
         }
@@ -38,7 +38,7 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "hls.min.js"
+                "src/resources/hls.min.js"
             ],
             "matches": [
                 "*://kick.com/*"
