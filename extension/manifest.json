@@ -1,0 +1,48 @@
+{
+    "manifest_version": 3,
+    "name": "KickNoSub",
+    "version": "1.0",
+    "description": "Unlock subscriber-only videos on Kick by replacing the overlay with an HLS player.",
+      "icons": {
+        "16": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
+    "permissions": [
+        "webRequest",
+        "declarativeNetRequest"
+    ],
+    "host_permissions": [
+        "*://kick.com/*",
+        "*://*.kick.com/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://kick.com/*",
+                "*://www.kick.com/*"
+            ],
+            "js": [
+                "hls.min.js",
+                "content.js"
+            ],
+            "css": [
+                "styles.css"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "hls.min.js"
+            ],
+            "matches": [
+                "*://kick.com/*"
+            ]
+        }
+    ]
+}
