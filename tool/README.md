@@ -4,7 +4,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/Enmn/KickNoSub">
-    <img src="logo.png" alt="KickNoSub Logo" width="120" height="120">
+    <img src="../logo.png" alt="KickNoSub Logo" width="120" height="120">
   </a>
 
   <h3 align="center">KickNoSub (Python Tool)</h3>

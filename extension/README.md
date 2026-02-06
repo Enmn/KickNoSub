@@ -1,6 +1,6 @@
 <a id="readme-top"></a>
 <div align="center">
-  <img src="logo.png" alt="KickNoSub Logo" width="120" height="120">
+  <img src="../logo.png" alt="KickNoSub Logo" width="120" height="120">
   <h3 align="center">KickNoSub (Chromium Extension)</h3>
   <p align="center">
     This folder contains the **KickNoSub extension** which allows users to

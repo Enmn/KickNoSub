@@ -7,7 +7,7 @@
 
   <p align="center">
     A unified project that provides both a Python tool and a Chrome extension
-    for extract direct stream URLs from Kick VODs easily.
+    for extract direct stream URLs from Kick.
     <br />
     <a href="https://github.com/Enmn/KickNoSub"><strong>Explore the repository »</strong></a>
     <br />
@@ -28,15 +28,13 @@
 This project is intended **for educational, research, and learning purposes only.**
 
 ## Contents (Navigation)
-
 - **Tool (Python)**  
-  → See: [`/tool/README.md`](tool/README.md)
+  → See: [`/tool/README.md`](tool/)
 
 - **Chrome Extension**  
-  → See: [`/extension/README.md`](extension/README.md)
+  → See: [`/extension/README.md`](extension/)
 
 ## Legal Disclaimer
-
 This project is provided strictly for **educational and research purposes**.
 
 It is **not intended to**:
@@ -51,15 +49,20 @@ By using this project, you agree that:
 
 If you enjoy content on Kick, please support creators through official channels.
 
-## License
+## Contributing
+Contributions are welcome!  
 
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a pull request
+
+## License
 This project is licensed under the **Apache-2.0 license**.  
 See the full license in [`LICENSE`](LICENSE).
 
 ## Acknowledgments
-
 - Kick API ecosystem
 - Open-source Python community
 - Chrome Extensions platform
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
