@@ -23,11 +23,13 @@ This extension works on all **Chromium-based browsers**, including:
 - Opera
 
 ## Installation (Developer Mode)
-1. Open your **Chromium-based browser** (Chrome, Edge, Brave, etc.)
-2. Go to **Settings** → **Extensions** (or Manage extensions)
-3. Enable **Developer mode** (top-right corner)
-4. Click **Load unpacked**
-5. Select the `extension/` folder from this repository
+1. Download the **KickNoSub Extension** ZIP file from [Releases](https://github.com/Enmn/KickNoSub/releases)  
+2. Extract (unzip) the downloaded ZIP file  
+3. Open your **Chromium-based browser** (Chrome, Edge, Brave, etc.)  
+4. Go to **chrome://extensions/**  
+5. Enable **Developer mode** (top-right corner)  
+6. Click **Load unpacked**  
+7. Select the **extracted `KickNoSub/` folder**
 
 Then open a Kick VOD page, And it will work!
 
