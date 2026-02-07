@@ -68,7 +68,7 @@ This project is licensed under the **Apache-2.0 license**.
 See the full license in [`LICENSE`](LICENSE).
 
 ## Acknowledgments
-- [@Skreball](https://github.com/Skreball) — for contributing to and helping build the KickNoSub Chrome Extension.
+- [@Skreball](https://github.com/Skreball) — for contributing to and helping build the KickNoSub Chrome Extension (he is the best).
 
 - Kick API ecosystem
 - Open-source Python community
