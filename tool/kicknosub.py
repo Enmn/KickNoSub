@@ -148,14 +148,14 @@ class KickNoSub:
 
         if download:
             if self.ffmpeg_exists():
-                filename = questionary.text("Enter output filename (with .mp4):").ask()
+                filename = questionary.text("Enter output filename:").ask() + ".mp4"
                 self.download_video(stream_url, filename)
             else:
                 install = questionary.confirm("FFmpeg not found. Do you want to install it now?").ask()
                 if install:
                     self.install_ffmpeg()
                     if self.ffmpeg_exists():
-                        filename = questionary.text("Enter output filename (with .mp4):").ask()
+                        filename = questionary.text("Enter output filename:").ask() + ".mp4"
                         self.download_video(stream_url, filename)
                     else:
                         self.console.print("[yellow]FFmpeg still not available. Showing stream URL instead.[/yellow]")
