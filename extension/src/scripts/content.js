@@ -96,6 +96,35 @@ function getLatestReleaseInfo() {
     return latestReleasePromise;
 }
 
+async function fetchJson(url) {
+    try {
+        const backgroundData = await new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(undefined), 8000);
+            chrome.runtime.sendMessage({ action: "FETCH_JSON", url: url }, (response) => {
+                clearTimeout(timeout);
+                if (chrome.runtime.lastError || !response) resolve(undefined);
+                else resolve(response.data);
+            });
+        });
+
+        if (backgroundData !== undefined && backgroundData !== null) {
+            return backgroundData;
+        }
+    } catch (e) {}
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Accept': 'application/json, text/plain, */*'
+            },
+            cache: 'no-store'
+        });
+        if (response.ok) return await response.json();
+    } catch (e) {}
+
+    return null;
+}
+
 function bindGlobalPlayerListeners() {
     if (globalPlayerListenersBound) return;
 
@@ -139,16 +168,89 @@ function checkStreamUrl(url) {
 }
 
 async function getVideoMetadata(channelSlug, videoSlug) {
-    try {
-        const response = await fetch(`https://kick.com/api/v1/channels/${channelSlug}`);
-        if (!response.ok) return null;
-        const data = await response.json();
+    const targetVideoId = String(videoSlug || '').toLowerCase().trim();
+
+    const findVideo = (videos) => {
+        if (!Array.isArray(videos)) return null;
+
+        return videos.find((video) => {
+            if (!video) return false;
+            const identifiers = [
+                video.id,
+                video.slug,
+                video.uuid,
+                video.video?.uuid,
+                video.video?.id
+            ].filter((value) => value !== undefined && value !== null);
+
+            return identifiers.some((value) => String(value).toLowerCase() === targetVideoId);
+        }) || null;
+    };
+
+    const extractVideos = (payload) => {
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.data)) return payload.data;
+        if (Array.isArray(payload?.videos)) return payload.videos;
+        if (Array.isArray(payload?.data?.videos)) return payload.data.videos;
+        if (Array.isArray(payload?.previous_livestreams)) return payload.previous_livestreams;
+        return [];
+    };
+
+    let channelData = null;
+    for (const url of [
+        `https://kick.com/api/v2/channels/${channelSlug}`,
+        `https://web.kick.com/api/v1/channels/${channelSlug}`,
+        `https://kick.com/api/v1/channels/${channelSlug}`
+    ]) {
+        channelData = await fetchJson(url);
+        if (channelData) break;
+    }
+
+    if (!channelData) return null;
+
+    const channelId = channelData.id || channelData.channel_id || channelData.user_id;
+    if (!channelId) return null;
+
+    const legacyVideo = findVideo(extractVideos(channelData));
+    if (legacyVideo) {
         return {
-            video: data.previous_livestreams ? data.previous_livestreams.find(v => v.slug === videoSlug || v.video.uuid === videoSlug) : null,
-            channelId: data.id,
+            video: legacyVideo,
+            channelId: channelId,
             channelSlug: channelSlug
         };
-    } catch (e) { return null; }
+    }
+
+    for (const url of [
+        `https://web.kick.com/api/v1/video/${videoSlug}`,
+        `https://kick.com/api/v1/video/${videoSlug}`
+    ]) {
+        const videoPayload = await fetchJson(url);
+        const video = videoPayload?.video || videoPayload?.data || videoPayload;
+        if (video && findVideo([video])) {
+            return {
+                video: video,
+                channelId: video.channel_id || video.channel?.id || channelId,
+                channelSlug: video.channel?.slug || channelSlug
+            };
+        }
+    }
+
+    for (const url of [
+        `https://web.kick.com/api/v1/channels/${channelId}/videos`,
+        `https://kick.com/api/v1/channels/${channelId}/videos`
+    ]) {
+        const videoPayload = await fetchJson(url);
+        const video = findVideo(extractVideos(videoPayload));
+        if (video) {
+            return {
+                video: video,
+                channelId: channelId,
+                channelSlug: channelSlug
+            };
+        }
+    }
+
+    return null;
 }
 
 async function findStreamUrlFromMetadata(metadata) {
@@ -156,24 +258,34 @@ async function findStreamUrlFromMetadata(metadata) {
     if (!video) return null;
 
     // Quick candidate gen
-    const thumbUrl = video.thumbnail.src || video.thumbnail.url;
+    const thumbnail = video.thumbnail;
+    const thumbUrl = typeof thumbnail === 'string'
+        ? thumbnail
+        : (thumbnail?.src || thumbnail?.url || '');
     const candidates = [];
     if (thumbUrl) {
         const parts = thumbUrl.split('/');
         const ivsIndex = parts.indexOf('ivs');
-        if (ivsIndex !== -1 && parts[ivsIndex + 1] === 'v1') candidates.push({ cid: parts[ivsIndex + 2], vid: parts[ivsIndex + 3] });
-        else if (parts.length > 5) candidates.push({ cid: parts[4], vid: parts[5] });
+        const thumbnailsIndex = parts.indexOf('video_thumbnails');
+        if (ivsIndex !== -1 && parts[ivsIndex + 1] === 'v1') {
+            candidates.push({ cid: parts[ivsIndex + 2], vid: parts[ivsIndex + 3] });
+        } else if (thumbnailsIndex !== -1 && parts[thumbnailsIndex + 2]) {
+            candidates.push({ cid: parts[thumbnailsIndex + 1], vid: parts[thumbnailsIndex + 2] });
+        }
     }
-    if (channelId && video.video.uuid) candidates.push({ cid: channelId, vid: video.video.uuid });
+    const videoId = video.video?.uuid || video.video?.id || video.uuid || video.id;
+    if (channelId && videoId) candidates.push({ cid: channelId, vid: videoId });
     if (channelId && video.id) candidates.push({ cid: channelId, vid: video.id });
 
     const uniqueCandidates = candidates.filter((item, index, self) =>
         index === self.findIndex((t) => t.cid === item.cid && t.vid === item.vid)
     );
 
-    let startTimeStr = video.start_time.replace(' ', 'T');
+    let startTimeStr = String(video.start_time || video.created_at || '').replace(' ', 'T');
+    if (!startTimeStr) return null;
     if (!startTimeStr.endsWith('Z')) startTimeStr += 'Z';
     const startTime = new Date(startTimeStr);
+    if (Number.isNaN(startTime.getTime())) return null;
     const baseUrls = ["https://stream.kick.com/ivs/v1/196233775518", "https://stream.kick.com/3c81249a5ce0/ivs/v1/196233775518", "https://stream.kick.com/0f3cb0ebce7/ivs/v1/196233775518"];
 
     const tasks = [];

@@ -9,6 +9,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true; // Keep the messaging channel open
     }
 
+    if (message.action === "FETCH_JSON") {
+        fetchJsonAsync(message.url).then(data => {
+            sendResponse({ data });
+        }).catch(() => {
+            sendResponse({ data: null });
+        });
+        return true;
+    }
+
     if (message.action === "GET_LATEST_RELEASE") {
         getLatestReleaseAsync().then((release) => {
             sendResponse({ release });
@@ -18,6 +27,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 });
+
+function isAllowedKickApiUrl(url) {
+    try {
+        const parsedUrl = new URL(url);
+        const isKickHost = parsedUrl.hostname === 'kick.com' || parsedUrl.hostname.endsWith('.kick.com');
+        return parsedUrl.protocol === 'https:' && isKickHost && parsedUrl.pathname.startsWith('/api/');
+    } catch (e) {
+        return false;
+    }
+}
+
+async function fetchJsonAsync(url) {
+    if (!isAllowedKickApiUrl(url)) return null;
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json, text/plain, */*'
+            },
+            cache: 'no-store'
+        });
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        return null;
+    }
+}
 
 async function checkUrlAsync(url) {
     try {
