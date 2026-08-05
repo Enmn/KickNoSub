@@ -352,3 +352,87 @@
     font-variant-numeric: tabular-nums;
     text-align: right;
 }
+
+/* Speed drop-up */
+#k-speed-wrap {
+    position: relative;
+}
+
+#k-speed-btn {
+    background: rgba(10, 10, 10, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+#k-speed-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    min-width: 84px;
+    max-height: 190px;
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
+    padding: 6px 0;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(7, 7, 7, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    z-index: 30;
+}
+
+#k-speed-wrap.open #k-speed-menu {
+    display: flex;
+}
+
+#k-speed-menu .k-speed-option {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    border-radius: 0;
+    padding: 7px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: none;
+    opacity: 1;
+}
+
+#k-speed-menu .k-speed-option:hover {
+    transform: none;
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#k-speed-menu .k-speed-option.active {
+    background: rgba(83, 252, 24, 0.08);
+    color: #53fc18;
+}
+
+/* Retry Button */
+.k-retry-btn {
+    margin-top: 12px;
+    padding: 8px 18px;
+    background: #53fc18;
+    color: #000;
+    font-weight: bold;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.k-retry-btn:hover {
+    background: #6cff3b;
+    transform: scale(1.04);
+}
