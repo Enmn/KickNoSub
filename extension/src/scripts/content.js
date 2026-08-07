@@ -111,7 +111,7 @@ async function fetchJson(url) {
         if (bgData !== undefined && bgData !== null) {
             return bgData;
         }
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. Direct fetch fallback from page
     try {
@@ -121,7 +121,7 @@ async function fetchJson(url) {
         if (res.ok) {
             return await res.json();
         }
-    } catch (e) {}
+    } catch (e) { }
 
     return null;
 }
@@ -203,6 +203,13 @@ function bindGlobalPlayerListeners() {
     globalPlayerListenersBound = true;
 }
 
+function getThumbnailUrl(url, i = 0) {
+    let splited = url.split("/")
+    splited = splited.slice(0, -2)
+    let result = splited.join("/") + `/thumbnails/thumbnail-sheet-${i}.webp`;
+    return result
+}
+
 function extractMetadataFromDOM(channelSlug, videoSlug) {
     try {
         const scripts = document.querySelectorAll('script');
@@ -231,11 +238,11 @@ function extractMetadataFromDOM(channelSlug, videoSlug) {
                                 };
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }
         }
-    } catch (e) {}
+    } catch (e) { }
     return null;
 }
 
@@ -671,6 +678,8 @@ async function unlockVideo(triggerElement) {
         const finalUrl = streamUrl + (streamUrl.includes('?') ? '&' : '?') + 'kick_ts=' + Date.now();
         let videoParent = existingChat ? container : container.querySelector('#unlocker-video-area');
 
+        let firstPageThumbnail = getThumbnailUrl(streamUrl)
+
         // Build Custom Player UI
         const playerHTML = `
             <div id="k-player" style="width:100%;height:100%;position:relative;background:black;overflow:hidden;font-family:Inter,sans-serif;">
@@ -680,7 +689,10 @@ async function unlockVideo(triggerElement) {
                 </div>
                 <div id="k-controls" style="position:absolute;bottom:0;left:0;width:100%;padding:20px 15px 10px 15px;background:linear-gradient(to top, rgba(0,0,0,0.9), transparent);display:flex;flex-direction:column;opacity:0;transition:opacity 0.2s;">
                     <div id="k-track" style="width:100%;height:6px;padding:8px 0;background:rgba(255,255,255,0.3);background-clip:content-box;box-sizing:content-box;cursor:pointer;position:relative;margin-bottom:4px;border-radius:2px;">
-                        <div id="k-track-tooltip">
+                        <div>
+                            <img id="k-thumbnail" alt="" class="-top-[100px] lg:-top-[150px] absolute rounded-lg border-[1.5px] border-white bg-no-repeat object-none h-[22vw] max-h-[101px] w-[40vw] max-w-[180px] hidden" src="" style="object-position: 0px 0px; transform: translateX(0px);">
+                        </div>    
+                    <div id="k-track-tooltip">
                             <div id="k-track-tooltip-time">0:00</div>
                         </div>
                          <div id="k-progress" style="width:0%;height:100%;background:#53fc18;position:relative;border-radius:2px;"></div>
@@ -726,6 +738,7 @@ async function unlockVideo(triggerElement) {
         const btnBig = videoParent.querySelector('#k-big-play');
         const progressBar = videoParent.querySelector('#k-progress');
         const track = videoParent.querySelector('#k-track');
+        const thumbnail = videoParent.querySelector("#k-thumbnail")
         const trackTooltip = videoParent.querySelector('#k-track-tooltip');
         const trackTooltipTime = videoParent.querySelector('#k-track-tooltip-time');
         const timeDisplay = videoParent.querySelector('#k-time');
@@ -747,6 +760,11 @@ async function unlockVideo(triggerElement) {
         let hasStartedPlayback = false;
         let loadingStateTimeout = null;
         let previousVolumeBeforeMute = initialVolume > 0 ? initialVolume : 1;
+
+
+        thumbnail.src = firstPageThumbnail
+        console.log(firstPageThumbnail);
+
 
         const updateVolumeSliderVisual = (volume) => {
             const percent = Math.max(0, Math.min(100, Math.round(volume * 100)));
@@ -931,13 +949,13 @@ async function unlockVideo(triggerElement) {
         });
         vid.addEventListener('ended', () => setLoadingState(false));
         let lastSave = 0;
-        
+
         vid.addEventListener('timeupdate', () => {
             if (Date.now() - lastSave > 4000) {
                 localStorage.setItem(resumeKey, vid.currentTime);
                 lastSave = Date.now();
             }
-        
+
             if (isFinite(vid.duration)) {
                 progressBar.style.width = (vid.currentTime / vid.duration * 100) + '%';
                 timeDisplay.textContent = `${formatTime(vid.currentTime)} / ${formatTime(vid.duration)}`;
@@ -954,6 +972,23 @@ async function unlockVideo(triggerElement) {
             const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             vid.currentTime = ratio * vid.duration;
         };
+
+        const getAndUpdateThumbnailPosition = () => {
+
+            const hoverTime = vid.currentTime
+
+            const minutes = Math.floor(hoverTime / 60)
+
+            const row = minutes % 5
+            const column = Math.floor(minutes / 5)
+
+            let pageCount = Math.floor(column / 50);
+            thumbnailUrl = getThumbnailUrl(streamUrl, pageCount)
+
+            thumbnail.src = thumbnailUrl
+
+            return { row, column }
+        }
 
         track.addEventListener('mousedown', (e) => {
             isDraggingTrack = true;
@@ -981,12 +1016,24 @@ async function unlockVideo(triggerElement) {
             trackTooltipTime.textContent = formatTime(hoverTime);
             trackTooltip.style.left = `${ratio * rect.width}px`;
             trackTooltip.classList.add('visible');
+
+            const { row, column } = getAndUpdateThumbnailPosition();
+            if (thumbnail.classList.contains("hidden")) {
+                thumbnail.classList.remove("hidden")
+            }
+
+            let position = Math.min(Math.max(ratio * rect.width - 80, 20), rect.width - 180);
+            thumbnail.style.objectPosition = `${(row) * -180}px ${column % 50 * -101}px`;
+            thumbnail.style.transform = `translateX(${position}px)`;
         });
         track.addEventListener('mouseenter', () => {
             if (isFinite(vid.duration)) trackTooltip.classList.add('visible');
         });
         track.addEventListener('mouseleave', () => {
             trackTooltip.classList.remove('visible');
+            if (!thumbnail.classList.contains("hidden")) {
+                thumbnail.classList.add("hidden")
+            }
         });
 
         let hideControlsTimeout = null;
@@ -1080,7 +1127,7 @@ async function unlockVideo(triggerElement) {
                 vid.play().catch(() => btnBig.classList.add('visible'));
             });
             const savedTime = parseFloat(localStorage.getItem(resumeKey));
-            
+
             if (Number.isFinite(savedTime) && savedTime > 1) {
                 vid.addEventListener('loadedmetadata', () => {
                     if (Number.isFinite(vid.duration)) {
