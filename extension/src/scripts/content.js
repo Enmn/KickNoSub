@@ -688,11 +688,9 @@ async function unlockVideo(triggerElement) {
                     <div class="k-loading-spinner"></div>
                 </div>
                 <div id="k-controls" style="position:absolute;bottom:0;left:0;width:100%;padding:20px 15px 10px 15px;background:linear-gradient(to top, rgba(0,0,0,0.9), transparent);display:flex;flex-direction:column;opacity:0;transition:opacity 0.2s;">
-                    <div id="k-track" style="width:100%;height:6px;padding:8px 0;background:rgba(255,255,255,0.3);background-clip:content-box;box-sizing:content-box;cursor:pointer;position:relative;margin-bottom:4px;border-radius:2px;">
-                        <div>
-                            <img id="k-thumbnail" alt="" class="-top-[100px] lg:-top-[150px] absolute rounded-lg border-[1.5px] border-white bg-no-repeat object-none h-[22vw] max-h-[101px] w-[40vw] max-w-[180px] hidden" src="" style="object-position: 0px 0px; transform: translateX(0px);">
-                        </div>    
-                    <div id="k-track-tooltip">
+                    <div id="k-track" style="width:100%;height:6px;padding:8px 0;background:rgba(255,255,255,0.3);background-clip:content-box;box-sizing:content-box;cursor:pointer;position:relative;margin-bottom:4px;border-radius:2px;">  
+                         <div id="k-track-tooltip">
+                            <img id="k-thumbnail" alt="thumbnail" class="rounded-lg border-[1.5px] border-white bg-no-repeat object-none h-[22vw] max-h-[101px] w-[40vw] max-w-[180px] hidden">
                             <div id="k-track-tooltip-time">0:00</div>
                         </div>
                          <div id="k-progress" style="width:0%;height:100%;background:#53fc18;position:relative;border-radius:2px;"></div>
@@ -973,9 +971,7 @@ async function unlockVideo(triggerElement) {
             vid.currentTime = ratio * vid.duration;
         };
 
-        const getAndUpdateThumbnailPosition = () => {
-
-            const hoverTime = vid.currentTime
+        const getAndUpdateThumbnailPosition = (hoverTime) => {
 
             const minutes = Math.floor(hoverTime / 60)
 
@@ -1014,17 +1010,14 @@ async function unlockVideo(triggerElement) {
             const hoverTime = ratio * vid.duration;
 
             trackTooltipTime.textContent = formatTime(hoverTime);
-            trackTooltip.style.left = `${ratio * rect.width}px`;
+            let position = Math.min(Math.max(ratio * rect.width, 80), rect.width - 80);
+
+            trackTooltip.style.left = `${position}px`;
             trackTooltip.classList.add('visible');
 
-            const { row, column } = getAndUpdateThumbnailPosition();
-            if (thumbnail.classList.contains("hidden")) {
-                thumbnail.classList.remove("hidden")
-            }
-
-            let position = Math.min(Math.max(ratio * rect.width - 80, 20), rect.width - 180);
+            const { row, column } = getAndUpdateThumbnailPosition(hoverTime);
+            thumbnail.classList.remove("hidden")
             thumbnail.style.objectPosition = `${(row) * -180}px ${column % 50 * -101}px`;
-            thumbnail.style.transform = `translateX(${position}px)`;
         });
         track.addEventListener('mouseenter', () => {
             if (isFinite(vid.duration)) trackTooltip.classList.add('visible');
