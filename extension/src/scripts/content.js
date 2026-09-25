@@ -137,6 +137,43 @@ function checkStreamUrl(url) {
     });
 }
 
+function parseUtcDate(value) {
+    if (!value) return null;
+    let text = String(value).replace(' ', 'T');
+    if (!text.endsWith('Z')) text += 'Z';
+    const date = new Date(text);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+// Web-API thumbnails (web.kick.com/api/v1/videos/...) carry no IVS path.
+// Legacy thumbnails do: full IVS paths or images.kick.com/video_thumbnails/<cid>/<vid>/.
+function thumbnailHasIvsPath(video) {
+    const thumb = video?.thumbnail;
+    const src = typeof thumb === 'string' ? thumb : (thumb?.src || thumb?.url || '');
+    if (!src) return false;
+    const parts = src.split('/');
+    if (parts.includes('ivs')) return true;
+    const cid = parts[4];
+    const vid = parts[5];
+    return Boolean(cid && vid && parts[3] !== 'api'
+        && /^[0-9A-Za-z_-]{8,}$/.test(cid) && /^[0-9A-Za-z_-]{8,}$/.test(vid));
+}
+
+function mintPlaybackUrl(videoId, channelSlug) {
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 8000);
+        chrome.runtime.sendMessage({
+            action: 'MINT_PLAYBACK',
+            videoId: videoId,
+            urlPath: `/${channelSlug || 'channel'}/videos/${videoId}`
+        }, (response) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError || !response) resolve(null);
+            else resolve(response.vod || null);
+        });
+    });
+}
+
 function bindGlobalPlayerListeners() {
     if (globalPlayerListenersBound) return;
 
@@ -267,15 +304,18 @@ async function getVideoMetadata(channelSlug, videoSlug) {
         return found;
     };
 
+    let meta = null;
+
     // Step 0: Try DOM Extraction directly from page scripts
     const domResult = extractMetadataFromDOM(channelSlug, videoSlug);
     if (domResult && domResult.video) {
-        return domResult;
+        meta = domResult;
     }
 
     // Step 1: Get channel details to resolve NUMERICAL channelId
     let numericalChannelId = null;
     let channelData = null;
+    let previousLivestreams = null;
 
     if (channelSlug) {
         for (const chanUrl of [
@@ -287,16 +327,19 @@ async function getVideoMetadata(channelSlug, videoSlug) {
             if (resData && (resData.id || resData.channel_id || resData.user_id)) {
                 channelData = resData;
                 numericalChannelId = resData.id || resData.channel_id || resData.user_id;
+                previousLivestreams = Array.isArray(resData.previous_livestreams)
+                    ? resData.previous_livestreams
+                    : null;
                 break;
             }
         }
     }
 
     // Check if video exists in channel details (previous_livestreams)
-    if (channelData) {
-        const matched = findVideoInList(channelData.previous_livestreams || channelData.videos);
+    if (!meta && channelData) {
+        const matched = findVideoInList(previousLivestreams || channelData.videos);
         if (matched) {
-            return {
+            meta = {
                 video: matched,
                 channelId: numericalChannelId,
                 channelSlug: channelSlug
@@ -305,7 +348,7 @@ async function getVideoMetadata(channelSlug, videoSlug) {
     }
 
     // Step 2: Fetch videos endpoint using NUMERICAL channelId
-    if (numericalChannelId) {
+    if (!meta && numericalChannelId) {
         for (const videosUrl of [
             `https://web.kick.com/api/v1/channels/${numericalChannelId}/videos`,
             `https://kick.com/api/v1/channels/${numericalChannelId}/videos`,
@@ -316,18 +359,19 @@ async function getVideoMetadata(channelSlug, videoSlug) {
                 const videos = Array.isArray(data) ? data : (data.videos || data.data || data.previous_livestreams || []);
                 const matched = findVideoInList(videos);
                 if (matched) {
-                    return {
+                    meta = {
                         video: matched,
                         channelId: numericalChannelId,
                         channelSlug: channelSlug
                     };
                 }
             }
+            if (meta) break;
         }
     }
 
     // Step 3: Direct video endpoints if videoSlug exists
-    if (videoSlug) {
+    if (!meta && videoSlug) {
         for (const endpoint of [
             `https://web.kick.com/api/v1/video/${videoSlug}`,
             `https://web.kick.com/api/v1/videos/${videoSlug}`,
@@ -340,37 +384,69 @@ async function getVideoMetadata(channelSlug, videoSlug) {
                 if (vid && (vid.id || vid.uuid || vid.start_time)) {
                     const cId = vid.channel_id || vid.channel?.id || vid.user_id || numericalChannelId;
                     const cSlug = channelSlug || vid.channel?.slug || vid.channel_slug;
-                    return {
+                    meta = {
                         video: vid,
                         channelId: cId,
                         channelSlug: cSlug
                     };
                 }
             }
+            if (meta) break;
         }
     }
 
-    // Step 4: Fallback metadata if numericalChannelId and videoSlug are known
-    if (numericalChannelId && videoSlug) {
-        return {
-            video: {
-                id: videoSlug,
-                uuid: videoSlug,
-                start_time: new Date().toISOString(),
-                thumbnail: { url: "" }
-            },
-            channelId: numericalChannelId,
-            channelSlug: channelSlug
-        };
+    if (!meta) {
+        // Step 4: Fallback metadata if numericalChannelId and videoSlug are known
+        if (numericalChannelId && videoSlug) {
+            meta = {
+                video: {
+                    id: videoSlug,
+                    uuid: videoSlug,
+                    start_time: new Date().toISOString(),
+                    thumbnail: { url: "" }
+                },
+                channelId: numericalChannelId,
+                channelSlug: channelSlug
+            };
+        } else {
+            console.error("[Kick Unlocker] Unable to find video metadata");
+            return null;
+        }
     }
 
-    console.error("[Kick Unlocker] Unable to find video metadata");
-    return null;
+    // Since 2026-09-21 page/API thumbnails carry no IVS path. The channel's
+    // previous_livestreams thumbnails still expose <channelIvsId>/<videoId> —
+    // borrow the matching one (by start_time) for stream path discovery.
+    if (channelSlug && previousLivestreams && meta.video && !thumbnailHasIvsPath(meta.video)) {
+        const target = parseUtcDate(meta.video.start_time || meta.video.created_at);
+        if (target) {
+            const match = previousLivestreams.find(entry => {
+                const entryDate = parseUtcDate(entry?.start_time || entry?.created_at);
+                return entryDate && entryDate.getTime() === target.getTime();
+            });
+            if (match?.thumbnail) {
+                meta.video = { ...meta.video, thumbnail: match.thumbnail };
+            }
+        }
+    }
+
+    return meta;
 }
 
 async function findStreamUrlFromMetadata(metadata) {
     const { video, channelId } = metadata;
     if (!video && !channelId) return null;
+
+    // Since 2026-09-21 new VODs use unguessable IVS paths. Mint the playback
+    // URL the same way the kick.com web player does.
+    const mintVideoId = video?.video?.uuid || video?.uuid || video?.id;
+    if (mintVideoId) {
+        const minted = await mintPlaybackUrl(String(mintVideoId), metadata.channelSlug);
+        if (minted) {
+            console.log("[Kick Unlocker] playback URL minted via stream API");
+            return minted;
+        }
+    }
 
     // Quick candidate gen
     const thumbUrl = video?.thumbnail ? (video.thumbnail.src || video.thumbnail.url || (typeof video.thumbnail === 'string' ? video.thumbnail : '')) : '';
@@ -379,7 +455,7 @@ async function findStreamUrlFromMetadata(metadata) {
         const parts = thumbUrl.split('/');
         const ivsIndex = parts.indexOf('ivs');
         if (ivsIndex !== -1 && parts[ivsIndex + 1] === 'v1') candidates.push({ cid: parts[ivsIndex + 2], vid: parts[ivsIndex + 3] });
-        else if (parts.length > 5) candidates.push({ cid: parts[4], vid: parts[5] });
+        else if (parts.length > 5 && /^[0-9A-Za-z_-]{8,}$/.test(parts[4]) && /^[0-9A-Za-z_-]{8,}$/.test(parts[5])) candidates.push({ cid: parts[4], vid: parts[5] });
     }
     const vidUuid = video?.video?.uuid || video?.uuid || video?.id;
     if (channelId && vidUuid) candidates.push({ cid: channelId, vid: vidUuid });
@@ -411,7 +487,10 @@ async function findStreamUrlFromMetadata(metadata) {
         }
     }
     for (const url of tasks) {
-        if (await checkStreamUrl(url)) return url;
+        if (await checkStreamUrl(url)) {
+            console.log("[Kick Unlocker] found stream via legacy path");
+            return url;
+        }
     }
     return null;
 }
