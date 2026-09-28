@@ -205,6 +205,9 @@ function bindGlobalPlayerListeners() {
         } else if (key === 'f' || key === 'F') {
             event.preventDefault();
             playerUi.toggleFullscreen?.();
+        } else if (key === 't' || key === 'T') {
+            event.preventDefault();
+            playerUi.toggleTheatre?.();
         } else if (key === 'm' || key === 'M') {
             event.preventDefault();
             playerUi.toggleMute?.();
@@ -495,19 +498,55 @@ async function findStreamUrlFromMetadata(metadata) {
     return null;
 }
 
+// Native Kick badge SVGs (broadcaster/staff are approximations)
+const KICK_BADGE_SVGS = {
+    broadcaster: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="19" height="19" fill="#eb0400"><path d="M2 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5zm14 1.5v7l3.5 2V4.5L16 6.5z"/></svg>',
+    og: "<svg width=\"19\" height=\"19\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#fff\" d=\"M13.84 10.71v6.04q0 .18.12.28.12.09.37.08h.46V19h-1.5q-1.59 0-2.26-.56a2 2 0 0 1-.65-1.47V10.5q0-.91.65-1.48.67-.55 2.25-.55h1.59v1.88h-.54q-.26 0-.37.1-.12.09-.12.26M19 13.18V15h-4.45v-1.82zm-3.46-1.1V10.7q0-.17-.12-.26-.12-.1-.38-.1h-.53V8.47h1.58q1.59 0 2.24.55.67.57.67 1.48v1.58zm0 4.67v-2.31H19v2.53q0 .9-.67 1.47-.65.56-2.24.56h-1.5v-1.89h.45q.27 0 .38-.08a.3.3 0 0 0 .12-.28\"></path><path fill=\"url(#kb-og-0)\" d=\"M13.84 10.71v6.04q0 .18.12.28.12.09.37.08h.46V19h-1.5q-1.59 0-2.26-.56a2 2 0 0 1-.65-1.47V10.5q0-.91.65-1.48.67-.55 2.25-.55h1.59v1.88h-.54q-.26 0-.37.1-.12.09-.12.26M19 13.18V15h-4.45v-1.82zm-3.46-1.1V10.7q0-.17-.12-.26-.12-.1-.38-.1h-.53V8.47h1.58q1.59 0 2.24.55.67.57.67 1.48v1.58zm0 4.67v-2.31H19v2.53q0 .9-.67 1.47-.65.56-2.24.56h-1.5v-1.89h.45q.27 0 .38-.08a.3.3 0 0 0 .12-.28\"></path><path fill=\"#00fff2\" d=\"M13.84 3.25v6.04q0 .17.12.27.12.09.37.09h.46v1.88h-1.5q-1.59 0-2.26-.55a2 2 0 0 1-.65-1.48V3.03q0-.9.65-1.47Q11.7 1 13.28 1h1.59v1.89h-.54q-.26 0-.37.1-.12.08-.12.26M19 5.7v1.82h-4.45V5.71zm-3.46-1.1V3.25q0-.18-.12-.26-.12-.1-.38-.1h-.53V1h1.58q1.59 0 2.24.56.67.55.67 1.47v1.58zm0 4.68V6.97H19V9.5q0 .91-.67 1.48-.66.55-2.24.55h-1.5V9.65h.45q.26 0 .38-.09a.3.3 0 0 0 .12-.27\"></path><path fill=\"#fff\" d=\"M6.28 5.4v-2q0-.18-.12-.26-.12-.1-.37-.1h-.66V1h1.7q1.59 0 2.24.56.67.55.67 1.47V5.4zm0 3.72V5.18h3.46V9.5q0 .91-.67 1.48-.65.55-2.24.55h-1.7V9.48h.66q.26 0 .37-.08a.3.3 0 0 0 .12-.28m-1.82-5.7V5.4H1V3.03q0-.9.65-1.47Q2.32 1 3.91 1h1.7v2.05h-.65q-.26 0-.38.1-.12.08-.12.26m0 1.76v3.94q0 .19.12.28t.38.08h.65v2.05H3.9q-1.58 0-2.26-.55A2 2 0 0 1 1 9.5V5.18z\"></path><path fill=\"url(#kb-og-1)\" d=\"M6.28 5.4v-2q0-.18-.12-.26-.12-.1-.37-.1h-.66V1h1.7q1.59 0 2.24.56.67.55.67 1.47V5.4zm0 3.72V5.18h3.46V9.5q0 .91-.67 1.48-.65.55-2.24.55h-1.7V9.48h.66q.26 0 .37-.08a.3.3 0 0 0 .12-.28m-1.82-5.7V5.4H1V3.03q0-.9.65-1.47Q2.32 1 3.91 1h1.7v2.05h-.65q-.26 0-.38.1-.12.08-.12.26m0 1.76v3.94q0 .19.12.28t.38.08h.65v2.05H3.9q-1.58 0-2.26-.55A2 2 0 0 1 1 9.5V5.18z\"></path><path fill=\"#00fff2\" d=\"M6.28 12.86v-1.98q0-.18-.12-.26-.12-.1-.37-.1h-.66V8.47h1.7q1.59 0 2.24.55.67.57.67 1.48v2.36zm0 3.73v-3.94h3.46v4.32q0 .9-.67 1.47-.65.56-2.24.56h-1.7v-2.05h.66q.26 0 .37-.08a.3.3 0 0 0 .12-.28m-1.82-5.71v1.98H1V10.5q0-.91.65-1.48.67-.55 2.26-.55h1.7v2.05h-.65q-.26 0-.38.1-.12.08-.12.26m0 1.77v3.94q0 .18.12.28.12.08.38.08h.65V19H3.9q-1.58 0-2.26-.56A2 2 0 0 1 1 16.97v-4.32z\"></path><defs><linearGradient id=\"kb-og-0\" x1=\"9.56\" x2=\"9.93\" y1=\"-11.09\" y2=\"19\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#00fff2\"></stop><stop offset=\"1\" stop-color=\"#006399\"></stop></linearGradient><linearGradient id=\"kb-og-1\" x1=\"10\" x2=\"10.11\" y1=\"1\" y2=\"32.3\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#00fff2\"></stop><stop offset=\"1\" stop-color=\"#006399\"></stop></linearGradient></defs></svg>",
+    staff: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="19" height="19" fill="#53fc18"><path d="M10 6.5A3.5 3.5 0 0 0 6.5 10 3.5 3.5 0 0 0 10 13.5a3.5 3.5 0 0 0 3.5-3.5A3.5 3.5 0 0 0 10 6.5zm7 3.5c0-.3 0-.6-.1-.9l1.9-1.5c.2-.1.2-.3.1-.5l-1.8-3c-.1-.2-.3-.3-.5-.2L14.3 5c-.4-.3-.9-.6-1.4-.8L12.5 2c0-.2-.2-.3-.4-.3h-4c-.2 0-.4.1-.4.3l-.4 2.2c-.5.2-1 .5-1.4.8L3.5 3.9c-.2-.1-.4 0-.5.2l-2 3c-.1.2-.1.4.1.5L3 9.1c-.1.3-.1.6-.1.9 0 .3 0 .6.1.9L1 12.4c-.2.1-.2.3-.1.5l1.8 3c.1.2.3.3.5.2l2.3-.9c.4.3.9.6 1.4.8l.4 2.2c0 .2.2.3.4.3h4c.2 0 .4-.1.4-.3l.4-2.2c.5-.2 1-.5 1.4-.8l2.3.9c.2.1.4 0 .5-.2l1.8-3c.1-.2.1-.4-.1-.5L17 10.9c.1-.3.1-.6.1-.9z"/></svg>',
+    founder: "<svg width=\"19\" height=\"19\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"url(#kb-founder-0)\" d=\"M10 19a9 9 0 1 0 0-18 9 9 0 0 0 0 18\"></path><path fill=\"url(#kb-founder-1)\" d=\"M10 19a9 9 0 1 0 0-18 9 9 0 0 0 0 18\"></path><path fill=\"#feb635\" d=\"M10 17.33a7.33 7.33 0 1 0 0-14.66 7.33 7.33 0 0 0 0 14.66\"></path><path fill=\"url(#kb-founder-2)\" d=\"M10 17.33a7.33 7.33 0 1 0 0-14.66 7.33 7.33 0 0 0 0 14.66\"></path><path fill=\"#000\" fill-opacity=\".05\" d=\"M17.33 10a7.34 7.34 0 0 1-10.95 6.37 7.34 7.34 0 0 0 6.9-12.93A7.3 7.3 0 0 1 17.32 10M10.5 3.01c1.44 0 2.8.42 3.92 1.14A7.33 7.33 0 1 0 6.1 16.21 7.32 7.32 0 0 1 10.5 3\"></path><path fill=\"#000\" fill-opacity=\".8\" d=\"M11.46 6.32v8.18H9.24V8.36h-.05L7.4 9.43V7.55l2.02-1.23z\"></path><defs><linearGradient id=\"kb-founder-0\" x1=\"9.86\" x2=\"10.14\" y1=\"-1.51\" y2=\"21.64\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ffc900\"></stop><stop offset=\".99\" stop-color=\"#ff9500\"></stop></linearGradient><linearGradient id=\"kb-founder-1\" x1=\"10\" x2=\"10\" y1=\"1\" y2=\"19\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#fff\" stop-opacity=\".3\"></stop><stop offset=\"1\" stop-color=\"#fff\" stop-opacity=\".15\"></stop></linearGradient><linearGradient id=\"kb-founder-2\" x1=\"9.86\" x2=\"10.14\" y1=\"-1.51\" y2=\"21.64\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ffc900\"></stop><stop offset=\".99\" stop-color=\"#ff9500\"></stop></linearGradient></defs></svg>",
+    moderator: "<svg width=\"19\" height=\"19\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"url(#kb-mod-0)\" fill-rule=\"evenodd\" d=\"M17.88 1C18.5 1 19 1.5 19 2.13v15.75c0 .62-.5 1.12-1.12 1.12H2.13C1.5 19 1 18.5 1 17.88V2.13C1 1.5 1.5 1 2.13 1zm-7.76 1.68a.56.56 0 0 0-.8 0L5.7 6.31a.56.56 0 0 0 0 .8l.98.97c.22.21.57.21.8 0l.04-.05 1.32 1.33-5.83 5.83a1.25 1.25 0 0 0 1.77 1.77l5.83-5.84 1.33 1.33-.05.04a.56.56 0 0 0 0 .8l.97.97c.22.22.58.22.8 0l3.62-3.62a.56.56 0 0 0 0-.8l-.97-.97a.56.56 0 0 0-.8 0l-.04.04-1.32-1.32a1.25 1.25 0 0 0-1.77-1.77L11.05 4.5l.05-.05a.56.56 0 0 0 0-.8z\" clip-rule=\"evenodd\"></path><path fill=\"url(#kb-mod-1)\" fill-rule=\"evenodd\" d=\"M17.88 1C18.5 1 19 1.5 19 2.13v15.75c0 .62-.5 1.12-1.12 1.12H2.13C1.5 19 1 18.5 1 17.88V2.13C1 1.5 1.5 1 2.13 1zm-7.76 1.68a.56.56 0 0 0-.8 0L5.7 6.31a.56.56 0 0 0 0 .8l.98.97c.22.21.57.21.8 0l.04-.05 1.32 1.33-5.83 5.83a1.25 1.25 0 0 0 1.77 1.77l5.83-5.84 1.33 1.33-.05.04a.56.56 0 0 0 0 .8l.97.97c.22.22.58.22.8 0l3.62-3.62a.56.56 0 0 0 0-.8l-.97-.97a.56.56 0 0 0-.8 0l-.04.04-1.32-1.32a1.25 1.25 0 0 0-1.77-1.77L11.05 4.5l.05-.05a.56.56 0 0 0 0-.8z\" clip-rule=\"evenodd\"></path><path fill=\"url(#kb-mod-2)\" fill-rule=\"evenodd\" d=\"M17.88 1C18.5 1 19 1.5 19 2.13v15.75c0 .62-.5 1.12-1.12 1.12H2.13C1.5 19 1 18.5 1 17.88V2.13C1 1.5 1.5 1 2.13 1zm-7.76 1.68a.56.56 0 0 0-.8 0L5.7 6.31a.56.56 0 0 0 0 .8l.98.97c.22.21.57.21.8 0l.04-.05 1.32 1.33-5.83 5.83a1.25 1.25 0 0 0 1.77 1.77l5.83-5.84 1.33 1.33-.05.04a.56.56 0 0 0 0 .8l.97.97c.22.22.58.22.8 0l3.62-3.62a.56.56 0 0 0 0-.8l-.97-.97a.56.56 0 0 0-.8 0l-.04.04-1.32-1.32a1.25 1.25 0 0 0-1.77-1.77L11.05 4.5l.05-.05a.56.56 0 0 0 0-.8z\" clip-rule=\"evenodd\"></path><defs><linearGradient id=\"kb-mod-0\" x1=\"11.58\" x2=\"2.62\" y1=\"-6.16\" y2=\"23\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ff6a4a\"></stop><stop offset=\"1\" stop-color=\"#c70c00\"></stop></linearGradient><linearGradient id=\"kb-mod-1\" x1=\"9.86\" x2=\"10.18\" y1=\"-1.68\" y2=\"22.98\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ffc900\"></stop><stop offset=\".99\" stop-color=\"#ff9500\"></stop></linearGradient><linearGradient id=\"kb-mod-2\" x1=\"-7.41\" x2=\"19\" y1=\"27.41\" y2=\"1\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#0095ff\"></stop><stop offset=\".99\" stop-color=\"#00c7ff\"></stop></linearGradient></defs></svg>",
+    verified: "<svg width=\"19\" height=\"19\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"url(#kb-ver-0)\" fill-rule=\"evenodd\" d=\"M9.15 1.43c.48-.57 1.18-.57 1.64 0l1.26 1.58c.1.1.18.14.33.1q.97-.29 1.96-.54c.7-.18 1.27.23 1.3.95q.09 1 .11 2.03 0 .22.19.27l1.86.7c.74.27.97.91.54 1.58l-1.1 1.67c-.08.13-.08.2 0 .33l1.12 1.72c.4.6.18 1.26-.48 1.6q-.94.38-1.88.72c-.12.04-.2.1-.2.27l-.11 2.07c-.02.7-.6 1.11-1.28.93l-1.99-.54c-.14-.04-.2 0-.29.1l-1.28 1.6c-.46.57-1.14.57-1.62 0l-1.28-1.6q-.1-.17-.29-.1c-.64.18-1.28.33-1.92.54-.8.25-1.39-.35-1.39-1.02 0-.66-.08-1.3-.1-1.96q.02-.22-.19-.27l-1.94-.75a.98.98 0 0 1-.5-1.47q.55-.89 1.14-1.75c.08-.15.08-.23 0-.36L1.64 8.12c-.4-.6-.18-1.24.48-1.51l1.92-.75c.13-.06.19-.12.19-.27q.03-1.04.1-2.07c.04-.74.58-1.1 1.47-.89l1.74.48q.23.08.37-.12zm5.36 5a1.4 1.4 0 0 0-1.98.09l-4.17 4.54-1.3-1.3a1.4 1.4 0 0 0-2.09 1.88l.1.1L7.4 14.1a1.4 1.4 0 0 0 2.03-.05l5.16-5.62a1.4 1.4 0 0 0-.09-1.99\" clip-rule=\"evenodd\"></path><defs><linearGradient id=\"kb-ver-0\" x1=\"5.58\" x2=\"14.78\" y1=\"19.2\" y2=\"1.51\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#1eff00\"></stop><stop offset=\".99\" stop-color=\"#00ff8c\"></stop></linearGradient></defs></svg>",
+    vip: "<svg width=\"19\" height=\"19\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"url(#kb-vip-0)\" fill-rule=\"evenodd\" d=\"M17.88 1C18.5 1 19 1.5 19 2.13v15.75c0 .62-.5 1.12-1.12 1.12H2.13C1.5 19 1 18.5 1 17.88V2.13C1 1.5 1.5 1 2.13 1zm-7.9 2.81a.6.6 0 0 0-.53.32L6.53 9.45 3 7.69a.6.6 0 0 0-.64.07.6.6 0 0 0-.22.62l1.44 6.75q.04.22.21.36a.6.6 0 0 0 .4.13h11.58a.6.6 0 0 0 .38-.13.6.6 0 0 0 .22-.36l1.49-6.75a.6.6 0 0 0-.22-.64.6.6 0 0 0-.65-.06l-3.56 1.77-2.92-5.32a1 1 0 0 0-.23-.23 1 1 0 0 0-.3-.09\" clip-rule=\"evenodd\"></path><path fill=\"url(#kb-vip-1)\" fill-rule=\"evenodd\" d=\"M17.88 1C18.5 1 19 1.5 19 2.13v15.75c0 .62-.5 1.12-1.12 1.12H2.13C1.5 19 1 18.5 1 17.88V2.13C1 1.5 1.5 1 2.13 1zm-7.9 2.81a.6.6 0 0 0-.53.32L6.53 9.45 3 7.69a.6.6 0 0 0-.64.07.6.6 0 0 0-.22.62l1.44 6.75q.04.22.21.36a.6.6 0 0 0 .4.13h11.58a.6.6 0 0 0 .38-.13.6.6 0 0 0 .22-.36l1.49-6.75a.6.6 0 0 0-.22-.64.6.6 0 0 0-.65-.06l-3.56 1.77-2.92-5.32a1 1 0 0 0-.23-.23 1 1 0 0 0-.3-.09\" clip-rule=\"evenodd\"></path><defs><linearGradient id=\"kb-vip-0\" x1=\"11.58\" x2=\"2.62\" y1=\"-6.16\" y2=\"23\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ff6a4a\"></stop><stop offset=\"1\" stop-color=\"#c70c00\"></stop></linearGradient><linearGradient id=\"kb-vip-1\" x1=\"9.86\" x2=\"10.18\" y1=\"-1.68\" y2=\"22.98\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#ffc900\"></stop><stop offset=\".99\" stop-color=\"#ff9500\"></stop></linearGradient></defs></svg>",
+};
+
+// Gift tiers by threshold; missing tiers fall back to the nearest lower one
+const KICK_GIFT_BADGES = {
+    1: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#53fc18\" d=\"m13.57 6.2 2.05-3.09h-4.5L10 4.8 8.88 3.1h-4.5l2.05 3.1H3.25v3.14h13.5V6.2zm2.1 5.4H4.32v5.29h11.35z\"></path><path fill=\"#32970e\" d=\"M15.67 9.35H4.32v2.25h11.35z\"></path></svg>",
+    5: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#2efad1\" d=\"m13.57 6.2 2.05-3.1h-4.5L10 4.8 8.88 3.1h-4.5l2.05 3.1H3.25v3.15h13.5V6.2zm2.1 5.4H4.32v5.3h11.35z\"></path><path fill=\"#00a18d\" d=\"M15.67 9.35H4.32v2.25h11.35z\"></path></svg>",
+    10: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#deb2ff\" d=\"m13.57 6.2 2.05-3.1h-4.5L10 4.8 8.88 3.1h-4.5l2.05 3.1H3.25v3.15h13.5V6.2zm2.1 5.4H4.32v5.3h11.35z\"></path><path fill=\"#bc66ff\" d=\"M15.67 9.35H4.32v2.25h11.35z\"></path></svg>",
+    25: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#fbcfd8\" d=\"m13.57 6.2 2.05-3.1h-4.5L10 4.8 8.88 3.1h-4.5l2.05 3.1H3.25v3.15h13.5V6.2zm2.1 5.4H4.32v5.3h11.35z\"></path><path fill=\"#f2708a\" d=\"M15.67 9.35H4.32v2.25h11.35z\"></path></svg>",
+    50: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#ffd899\" d=\"m13.57 6.2 2.05-3.1h-4.5L10 4.8 8.88 3.1h-4.5l2.05 3.1H3.25v3.15h13.5V6.2zm2.1 5.4H4.32v5.3h11.35z\"></path><path fill=\"#ff9d00\" d=\"M15.67 9.35H4.32v2.25h11.35z\"></path></svg>",
+    100: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#ddfed1\" d=\"M17.88 6.63H2.13v10.12h15.75z\"></path><path fill=\"#53fc18\" d=\"M7.75 6.63H6.63L4.38 3.25h4.5L10 4.94l1.13-1.69h4.5l-2.26 3.38h-1.12v10.12h-4.5z\"></path></svg>",
+    150: "<svg width=\"19\" height=\"19\" style=\"transform:scale(1.125)\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\"><path fill=\"#93ebe0\" d=\"M17.88 6.63H2.13v10.12h15.75z\"></path><path fill=\"#00ccb3\" d=\"M7.75 6.63H6.63L4.38 3.25h4.5L10 4.94l1.13-1.69h4.5l-2.26 3.38h-1.12v10.12h-4.5z\"></path></svg>",
+};
+
 class ChatController {
-    constructor(channelId, videoStartTime, container) {
+    constructor(channelId, videoStartTime, container, channelSlug = null) {
         this.channelId = channelId;
+        this.channelSlug = channelSlug;
         this.videoStartTime = videoStartTime;
         this.container = container;
         this.messages = [];
         this.videoElement = null;
         this.activeSessionId = 0;
+        this.worker = null;
+        this.usingWorker = false;
+        this.visibilityHandler = null;
+        this.channelSubBadges = [];
     }
 
     destroy() {
         this.activeSessionId = -1;
         this.messages = [];
+        if (this.worker) {
+            try { this.worker.postMessage({ type: 'stop' }); } catch (e) {}
+            try { this.worker.terminate(); } catch (e) {}
+            this.worker = null;
+        }
+        if (this.visibilityHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityHandler);
+            this.visibilityHandler = null;
+        }
         if (this.container) {
             this.container.innerHTML = '';
         }
@@ -524,7 +563,175 @@ class ChatController {
             this.chatList = this.container.querySelector('#kick-unlocker-chat-list');
         }
         if (initialVideoElement) this.connectVideo(initialVideoElement);
-        this.fetchLoop(this.activeSessionId);
+        this._loadChannelBadges();
+        this._startFetching();
+    }
+
+    async _loadChannelBadges() {
+        // The endpoint takes the channel slug, not the numeric id
+        const seg = location.pathname.split('/').filter(Boolean)[0];
+        const slug = this.channelSlug || (seg && seg !== 'video' && seg !== 'videos' ? seg : null);
+        const urls = [];
+        if (slug) {
+            urls.push('https://kick.com/api/v2/channels/' + slug);
+            urls.push('https://kick.com/api/v1/channels/' + slug);
+            urls.push('https://web.kick.com/api/v1/channels/' + slug);
+        }
+        urls.push('https://kick.com/api/v2/channels/' + this.channelId);
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) continue;
+                const d = await res.json();
+                if (Array.isArray(d?.subscriber_badges) && d.subscriber_badges.length) {
+                    this.channelSubBadges = d.subscriber_badges;
+                    // Force a re-render so existing messages get their badges
+                    this.lastRenderedMsgId = null;
+                    if (this.videoElement) this.updateUI(this.videoElement.currentTime);
+                    return;
+                }
+            } catch (e) {}
+        }
+    }
+
+    _startFetching() {
+        if (this._trySpawnWorker()) {
+            this.usingWorker = true;
+        } else {
+            this.usingWorker = false;
+            this.fetchLoop(this.activeSessionId);
+        }
+    }
+
+    // Fetch loop in a Worker: background tabs throttle main-thread timers
+    _trySpawnWorker() {
+        try {
+            const workerCode = `
+                let sessionId = 0;
+                let channelId = null;
+                let videoStartTimeMs = 0;
+                let currentTimeMs = 0;
+                let cursor = null;
+                let tickInterval = null;
+                let running = false;
+                // Extrapolate playback time: the throttled main thread stops sending updates
+                let lastRxCurrentTimeMs = 0;
+                let lastRxWallClockMs = 0;
+                let lastResetAtVidT = 0;
+
+                function estimatedCurrentTimeMs() {
+                    if (lastRxWallClockMs === 0) return currentTimeMs;
+                    return lastRxCurrentTimeMs + (Date.now() - lastRxWallClockMs);
+                }
+
+                async function safeFetch(url) {
+                    try {
+                        const res = await fetch(url, { headers: { 'Accept': 'application/json, text/plain, */*' } });
+                        if (res.ok) return await res.json();
+                    } catch (e) {}
+                    return null;
+                }
+
+                async function fetchLoop(mySessionId) {
+                    cursor = null;
+                    lastResetAtVidT = videoStartTimeMs + estimatedCurrentTimeMs();
+                    while (running && sessionId === mySessionId) {
+                        // The API paginates backwards: restart from the current time every ~15s
+                        const vidT = videoStartTimeMs + estimatedCurrentTimeMs();
+                        if (cursor && vidT > lastResetAtVidT + 15000) {
+                            cursor = null;
+                            lastResetAtVidT = vidT;
+                        }
+                        let url = 'https://web.kick.com/api/v2/channels/' + channelId + '/messages';
+                        if (cursor) url += '?cursor=' + cursor;
+                        else url += '?start_time=' + new Date(vidT).toISOString();
+                        let data = await safeFetch(url);
+                        if (!data) data = await safeFetch(url.replace('web.kick.com', 'kick.com'));
+                        if (!data) { await new Promise(r => setTimeout(r, 2000)); continue; }
+                        if (sessionId !== mySessionId) break;
+
+                        const msgs = data.messages || (data.data && data.data.messages) || [];
+                        if (msgs.length) self.postMessage({ type: 'messages', msgs: msgs });
+                        const nextCursor = data.cursor || (data.data && data.data.cursor) || data.next_cursor;
+                        if (!nextCursor) {
+                            cursor = null;
+                            lastResetAtVidT = videoStartTimeMs + estimatedCurrentTimeMs();
+                            await new Promise(r => setTimeout(r, 2000));
+                        } else {
+                            cursor = nextCursor;
+                            await new Promise(r => setTimeout(r, 200));
+                        }
+                    }
+                }
+
+                self.onmessage = (e) => {
+                    const d = e.data;
+                    if (d.type === 'init') {
+                        channelId = d.channelId;
+                        videoStartTimeMs = d.videoStartTimeMs;
+                        currentTimeMs = d.currentTimeMs || 0;
+                        lastRxCurrentTimeMs = currentTimeMs;
+                        lastRxWallClockMs = Date.now();
+                        sessionId = d.sessionId;
+                        running = true;
+                        clearInterval(tickInterval);
+                        tickInterval = setInterval(() => self.postMessage({ type: 'tick' }), 500);
+                        fetchLoop(sessionId);
+                    } else if (d.type === 'updateTime') {
+                        currentTimeMs = d.currentTimeMs;
+                        lastRxCurrentTimeMs = d.currentTimeMs;
+                        lastRxWallClockMs = Date.now();
+                    } else if (d.type === 'seek') {
+                        sessionId = d.sessionId;
+                        currentTimeMs = d.currentTimeMs;
+                        lastRxCurrentTimeMs = d.currentTimeMs;
+                        lastRxWallClockMs = Date.now();
+                        cursor = null;
+                        fetchLoop(sessionId);
+                    } else if (d.type === 'stop') {
+                        running = false;
+                        clearInterval(tickInterval);
+                        tickInterval = null;
+                    }
+                };
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            this.worker = new Worker(URL.createObjectURL(blob));
+            this.worker.onmessage = (e) => {
+                const d = e.data;
+                if (d.type === 'tick') {
+                    if (this.videoElement && !this.videoElement.paused) {
+                        this.updateUI(this.videoElement.currentTime);
+                        try { this.worker.postMessage({ type: 'updateTime', currentTimeMs: this.videoElement.currentTime * 1000 }); } catch (e) {}
+                    }
+                } else if (d.type === 'messages') {
+                    d.msgs.forEach(msg => {
+                        if (!this.messages.some(m => m.id === msg.id)) this.messages.push(msg);
+                    });
+                    this.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    if (this.videoElement) this.updateUI(this.videoElement.currentTime);
+                }
+            };
+            this.worker.onerror = (e) => {
+                console.warn('[Kick Unlocker] Worker error, falling back to main-thread fetch:', e.message);
+                try { this.worker.terminate(); } catch (_) {}
+                this.worker = null;
+                this.usingWorker = false;
+                this.fetchLoop(this.activeSessionId);
+            };
+            this.worker.postMessage({
+                type: 'init',
+                channelId: this.channelId,
+                videoStartTimeMs: this.videoStartTime.getTime(),
+                currentTimeMs: this.videoElement ? this.videoElement.currentTime * 1000 : 0,
+                sessionId: this.activeSessionId
+            });
+            return true;
+        } catch (e) {
+            console.warn('[Kick Unlocker] Worker unavailable, using main-thread fetch:', e);
+            this.worker = null;
+            return false;
+        }
     }
 
     connectVideo(videoElement) {
@@ -534,8 +741,26 @@ class ChatController {
             this.activeSessionId++;
             this.messages = [];
             if (this.chatList) this.chatList.innerHTML = '<br><div style="text-align:center;color:#888;">Syncing...</div>';
-            this.fetchLoop(this.activeSessionId);
+            if (this.usingWorker && this.worker) {
+                try {
+                    this.worker.postMessage({
+                        type: 'seek',
+                        sessionId: this.activeSessionId,
+                        currentTimeMs: videoElement.currentTime * 1000
+                    });
+                } catch (e) {}
+            } else {
+                this.fetchLoop(this.activeSessionId);
+            }
         });
+
+        // Refresh right away when the tab becomes visible
+        this.visibilityHandler = () => {
+            if (!document.hidden && this.videoElement) {
+                this.updateUI(this.videoElement.currentTime);
+            }
+        };
+        document.addEventListener('visibilitychange', this.visibilityHandler);
     }
 
     parseContent(content) {
@@ -584,6 +809,48 @@ class ChatController {
         }
     }
 
+    // Merges legacy and v2 badges, ordered by sort_order
+    _renderBadgesHtml(identity) {
+        if (!identity) return '';
+        const legacy = identity.badges || [];
+        const v2 = (identity.badges_v2 || []).filter(b => b.selected);
+        if (!legacy.length && !v2.length) return '';
+
+        const combined = [
+            ...legacy.map(b => ({ ...b, _kind: 'legacy' })),
+            ...v2.map(b => ({ ...b, _kind: 'v2' }))
+        ];
+        combined.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+
+        const parts = [];
+        for (const b of combined) {
+            if (b._kind === 'v2' && b.image_url) {
+                const title = (b.name || '') + (b.metadata?.level ? ' ' + b.metadata.level : '');
+                parts.push('<img src="' + b.image_url + '" alt="' + title + '" title="' + title + '" style="display:inline-block;height:' + (b.name === 'level' ? 22 : 19) + 'px;width:auto;vertical-align:middle;margin-right:3px;">');
+            } else if (b._kind === 'legacy') {
+                if (b.type === 'subscriber' && b.count && this.channelSubBadges && this.channelSubBadges.length) {
+                    const sorted = this.channelSubBadges.slice().sort((x, y) => y.months - x.months);
+                    const matched = sorted.find(sb => sb.months <= b.count);
+                    if (matched && matched.badge_image && matched.badge_image.src) {
+                        parts.push('<img src="' + matched.badge_image.src + '" alt="' + matched.months + 'mo" title="Subscriber (' + b.count + ' mois)" style="display:inline-block;height:19px;width:auto;vertical-align:middle;margin-right:3px;">');
+                        continue;
+                    }
+                }
+                let svg = KICK_BADGE_SVGS[b.type];
+                if (b.type === 'sub_gifter') {
+                    const tiers = Object.keys(KICK_GIFT_BADGES).map(Number).sort((x, y) => y - x);
+                    const tier = tiers.find(n => n <= (b.count || 1)) || tiers[tiers.length - 1];
+                    svg = KICK_GIFT_BADGES[tier];
+                }
+                if (svg) {
+                    const title = (b.text || b.type) + (b.type === 'sub_gifter' && b.count ? ' (' + b.count + ')' : '');
+                    parts.push('<span title="' + title + '" style="display:inline-flex;vertical-align:middle;margin-right:3px;">' + svg + '</span>');
+                }
+            }
+        }
+        return parts.join('');
+    }
+
     updateUI(cwdSeconds) {
         if (!this.chatList) return;
         const absTime = this.videoStartTime.getTime() + (cwdSeconds * 1000);
@@ -598,7 +865,7 @@ class ChatController {
 
         this.chatList.innerHTML = subset.map(msg => `
             <div style="margin-bottom:4px;line-height:1.4;word-wrap:break-word;">
-                <span style="color:${msg.sender?.identity?.color || '#53fc18'};font-weight:bold;margin-right:5px;">${msg.sender?.username || 'User'}:</span>
+                ${this._renderBadgesHtml(msg.sender?.identity)}<span style="color:${msg.sender?.identity?.color || '#53fc18'};font-weight:bold;margin-right:5px;">${msg.sender?.username || 'User'}:</span>
                 <span style="color:#efeff1;">${this.parseContent(msg.content)}</span>
             </div>`).join('');
         this.chatList.scrollTop = this.chatList.scrollHeight;
@@ -640,7 +907,8 @@ async function unlockVideo(triggerElement) {
     );
 
     container.style.width = '100%';
-    container.style.minHeight = `${fallbackMinHeight}px`;
+    // max-height keeps the controls inside Kick's overflow:hidden wrapper
+    container.style.maxHeight = '100%';
 
     if (containerRect.width > 0 && containerRect.height > 0) {
         container.style.aspectRatio = `${containerRect.width} / ${containerRect.height}`;
@@ -743,7 +1011,7 @@ async function unlockVideo(triggerElement) {
         }
 
         const startTime = new Date((result.video?.start_time || result.video?.created_at || '').replace(' ', 'T') + ((result.video?.start_time || result.video?.created_at || '').endsWith('Z') ? '' : 'Z'));
-        const chatController = new ChatController(result.channelId, startTime, chatRoot);
+        const chatController = new ChatController(result.channelId, startTime, chatRoot, result.channelSlug);
         activeChatController = chatController;
         chatController.init(null);
 
@@ -784,6 +1052,9 @@ async function unlockVideo(triggerElement) {
                                 <button id="k-quality-btn" type="button">Auto ▴</button>
                                 <div id="k-quality-menu"></div>
                             </div>
+                            <button id="k-theatre" style="background:none;border:none;cursor:pointer;opacity:0.9;padding:0;display:flex;align-items:center;" aria-label="Theatre mode" title="Theatre mode (t)">
+                                <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:white;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><rect x="3" y="5" width="18" height="14" rx="1"></rect></svg>
+                            </button>
                             <button id="k-fs" style="background:none;border:none;cursor:pointer;opacity:0.9;" aria-label="Fullscreen">${ICONS.maximize}</button>
                         </div>
                     </div>
@@ -801,6 +1072,7 @@ async function unlockVideo(triggerElement) {
         const controls = videoParent.querySelector('#k-controls');
         const btnPlay = videoParent.querySelector('#k-play');
         const btnFs = videoParent.querySelector('#k-fs');
+        const btnTheatre = videoParent.querySelector('#k-theatre');
         const btnUpdate = videoParent.querySelector('#k-update-btn');
         const btnBig = videoParent.querySelector('#k-big-play');
         const progressBar = videoParent.querySelector('#k-progress');
@@ -891,6 +1163,7 @@ async function unlockVideo(triggerElement) {
             showSeekIndicator,
             togglePlay,
             toggleFullscreen: () => btnFs.click(),
+            toggleTheatre: () => btnTheatre?.click(),
             toggleMute: () => volumeButton.click(),
             applyVolume
         };
@@ -1092,6 +1365,30 @@ async function unlockVideo(triggerElement) {
 
         btnFs.addEventListener('click', () => { if (!document.fullscreenElement) pRoot.requestFullscreen(); else document.exitFullscreen(); });
         vid.addEventListener('dblclick', () => btnFs.click());
+
+        // Kick's theatre layout is driven by data-theatre on .group/main
+        const findGroupMain = () => document.querySelector('[class*="group/main"]');
+        const isTheatreOn = () => {
+            const el = findGroupMain();
+            return el && el.getAttribute('data-theatre') === 'true';
+        };
+        const syncTheatreButton = () => {
+            if (!btnTheatre) return;
+            btnTheatre.style.opacity = isTheatreOn() ? '1' : '0.7';
+        };
+        btnTheatre.addEventListener('click', () => {
+            const el = findGroupMain();
+            if (!el) return;
+            el.setAttribute('data-theatre', isTheatreOn() ? 'false' : 'true');
+            syncTheatreButton();
+        });
+        // Keep the icon in sync when theatre is toggled elsewhere
+        const groupMainEl = findGroupMain();
+        if (groupMainEl) {
+            const theatreObserver = new MutationObserver(syncTheatreButton);
+            theatreObserver.observe(groupMainEl, { attributes: true, attributeFilter: ['data-theatre'] });
+        }
+        syncTheatreButton();
 
         if (Hls.isSupported()) {
             const hls = new Hls({ debug: false, enableWorker: false, lowLatencyMode: true });
